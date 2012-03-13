@@ -116,7 +116,8 @@ def _filter_objects(con, objects, key_fields):
         yield o
 
 
-def insert_or_update_many(model, objects, keys=None, using="default"):
+def insert_or_update_many(model, objects, keys=None, using="default", 
+    skip_update=False):
     '''
     Bulk insert or update a list of Django objects. This works by
     first selecting each object's keys from the database. If an
@@ -128,6 +129,7 @@ def insert_or_update_many(model, objects, keys=None, using="default"):
     :param objects: List of objects of class `model`.
     :param keys: A list of field names to update on.
     :param using: Database to use.
+    :param skip_update: Flag to insert only non-existing objects.
 
     '''
     if not objects:
@@ -157,12 +159,13 @@ def insert_or_update_many(model, objects, keys=None, using="default"):
     cursor.execute(sql, parameters)
     existing = set(cursor.fetchall())
 
-    # Split the objects that need to be updated and the objects that need to be
-    # inserted.
-    update_objects = [o for (o, k) in object_keys if k in existing]
-    insert_objects = [o for (o, k) in object_keys if k not in existing]
+    if not skip_update:
+        # Find the objects that need to be updated
+        update_objects = [o for (o, k) in object_keys if k in existing]
+        _update_many(model, update_objects, keys=keys, using=using)
 
-    _update_many(model, update_objects, keys=keys, using=using)
+    # Find the objects that need to be inserted.
+    insert_objects = [o for (o, k) in object_keys if k not in existing]
 
     # Filter out any duplicates in the insertion
     filtered_objects = _filter_objects(con, insert_objects, key_fields)

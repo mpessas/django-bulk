@@ -164,6 +164,30 @@ class InsertUpdateTest(TestCase):
         self.assertEqual(3, TestModelA.objects.get(a="Test1", b=1).c)
         self.assertEqual(3, TestModelA.objects.get(a="Test3", b=3).c)
 
+
+    def test_multikey_insert_skip_update(self):
+        # Expected to fail in SQLite (no tuple comparison)
+        set1 = [
+            TestModelA(a="Test1", b=1, c=1),
+            TestModelA(a="Test2", b=2, c=2),
+            ]
+
+        insert_many(TestModelA, set1)
+        self.assertEqual(2, TestModelA.objects.all().count())
+
+        set2 = [
+            TestModelA(a="Test1", b=1, c=3),
+            TestModelA(a="Test2", b=3, c=4),
+            TestModelA(a="Test3", b=3, c=3),
+            ]
+
+        insert_or_update_many(TestModelA, set2, keys=['a', 'b'], skip_update=True)
+        self.assertEqual(4, TestModelA.objects.all().count())
+        self.assertEqual(2, TestModelA.objects.filter(a="Test2").count())
+
+        self.assertEqual(1, TestModelA.objects.get(a="Test1", b=1).c)
+        self.assertEqual(3, TestModelA.objects.get(a="Test3", b=3).c)
+
     def test_big_insert_update(self):
         # Expected to fail in SQLite (too many variables)
         set1 = [TestModelA(a="Test", b=i, c=1) for i in range(1000)]
